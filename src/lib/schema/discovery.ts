@@ -36,7 +36,9 @@ export const systemEntrySchema = z.object({
 export const flowEntrySchema = z.object({
   fromSystem: z.string().min(1, "Source system is required"),
   toSystem: z.string().min(1, "Target system is required"),
-  objects: z.string().min(1, "Describe what moves (tasks, projects, fields…)"),
+  objects: z
+    .string()
+    .min(1, "Say in plain language what should stay in sync between the tools"),
   trigger: triggerTypeSchema,
   triggerDetail: z.string().optional(),
   direction: flowDirectionSchema,
@@ -158,6 +160,6 @@ export const DISCOVERY_STEP_TITLES = [
   "Wrike specifics",
   "Workato / Unito pattern",
   "Flows",
-  "Data rules",
-  "Operations and wrap-up",
+  "Keeping data in sync",
+  "Launch and open questions",
 ];

@@ -457,8 +457,8 @@ export default function DiscoveryWizard() {
             {step === 4 && (
               <div className="space-y-4">
                 <p className="text-sm text-muted">
-                  Each flow is one directional story. Use the exact system names you used above so
-                  the nucleus can connect them.
+                  One connection at a time. Use the same tool names you typed in Systems (for
+                  example Wrike and Jira) so the map can draw the lines.
                 </p>
                 {flowFields.map((field, index) => (
                   <div
@@ -466,7 +466,7 @@ export default function DiscoveryWizard() {
                     className="space-y-3 rounded-xl border border-border bg-card p-4"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">Flow {index + 1}</span>
+                      <span className="text-sm font-medium">Connection {index + 1}</span>
                       {flowFields.length > 1 ? (
                         <button
                           type="button"
@@ -479,51 +479,71 @@ export default function DiscoveryWizard() {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field
-                        label="From system"
+                        label="Sends / updates from"
                         error={errors.flows?.[index]?.fromSystem?.message}
                       >
-                        <input className={inputClass} {...register(`flows.${index}.fromSystem`)} />
+                        <input
+                          className={inputClass}
+                          placeholder="e.g. Wrike"
+                          {...register(`flows.${index}.fromSystem`)}
+                        />
                       </Field>
-                      <Field label="To system" error={errors.flows?.[index]?.toSystem?.message}>
-                        <input className={inputClass} {...register(`flows.${index}.toSystem`)} />
+                      <Field label="Receives in" error={errors.flows?.[index]?.toSystem?.message}>
+                        <input
+                          className={inputClass}
+                          placeholder="e.g. Jira"
+                          {...register(`flows.${index}.toSystem`)}
+                        />
                       </Field>
                     </div>
                     <Field
-                      label="What moves between them?"
+                      label="In your own words, what should stay in sync?"
                       error={errors.flows?.[index]?.objects?.message}
                     >
                       <textarea
                         rows={3}
                         className={inputClass}
-                        placeholder="e.g. Tasks and status; comments on update"
+                        placeholder="Example: tasks and status, or comments when someone updates a task"
                         {...register(`flows.${index}.objects`)}
                       />
                     </Field>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Trigger" error={errors.flows?.[index]?.trigger?.message}>
+                      <Field label="When should this run?" error={errors.flows?.[index]?.trigger?.message}>
                         <select className={inputClass} {...register(`flows.${index}.trigger`)}>
-                          <option value="event">Event / real-time</option>
-                          <option value="schedule">Scheduled</option>
-                          <option value="manual">Manual / on-demand</option>
+                          <option value="event">When something changes</option>
+                          <option value="schedule">On a schedule</option>
+                          <option value="manual">When someone clicks “run”</option>
                           <option value="other">Other</option>
                         </select>
                       </Field>
-                      <Field label="Direction" error={errors.flows?.[index]?.direction?.message}>
+                      <Field label="One way or both ways?" error={errors.flows?.[index]?.direction?.message}>
                         <select className={inputClass} {...register(`flows.${index}.direction`)}>
                           <option value="one_way">One way</option>
-                          <option value="bidirectional">Bidirectional</option>
+                          <option value="bidirectional">Both ways</option>
                         </select>
                       </Field>
                     </div>
-                    <Field label="Trigger detail (if other)">
-                      <input className={inputClass} {...register(`flows.${index}.triggerDetail`)} />
+                    <Field label="If you picked Other, say what you mean">
+                      <input
+                        className={inputClass}
+                        placeholder="Optional"
+                        {...register(`flows.${index}.triggerDetail`)}
+                      />
                     </Field>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Frequency (optional)">
-                        <input className={inputClass} {...register(`flows.${index}.frequency`)} />
+                      <Field label="How often (optional)">
+                        <input
+                          className={inputClass}
+                          placeholder="e.g. every hour, daily"
+                          {...register(`flows.${index}.frequency`)}
+                        />
                       </Field>
-                      <Field label="Volume estimate (optional)">
-                        <input className={inputClass} {...register(`flows.${index}.volumeEstimate`)} />
+                      <Field label="Rough volume (optional)">
+                        <input
+                          className={inputClass}
+                          placeholder="e.g. hundreds of updates per day"
+                          {...register(`flows.${index}.volumeEstimate`)}
+                        />
                       </Field>
                     </div>
                   </div>
@@ -551,40 +571,86 @@ export default function DiscoveryWizard() {
 
             {step === 5 && (
               <div className="space-y-4">
-                <Field label="How do we match records across systems?">
-                  <textarea rows={3} className={inputClass} {...register("dataRules.identity")} />
+                <p className="text-sm text-muted">
+                  Skip anything you do not know yet — these are conversation starters, not a test.
+                </p>
+                <Field label="How do we know it is the same work item in both tools?">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Example: same email, same ID, or a link field"
+                    {...register("dataRules.identity")}
+                  />
                 </Field>
-                <Field label="Deduping or merge rules">
-                  <textarea rows={3} className={inputClass} {...register("dataRules.deduping")} />
+                <Field label="If the same thing gets created twice, what should happen?">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Example: keep one, merge, or flag for review"
+                    {...register("dataRules.deduping")}
+                  />
                 </Field>
-                <Field label="Deletes, archiving, or lifecycle">
-                  <textarea rows={3} className={inputClass} {...register("dataRules.deletes")} />
+                <Field label="When something is deleted in one tool, what should happen in the other?">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Example: delete, leave, or archive"
+                    {...register("dataRules.deletes")}
+                  />
                 </Field>
-                <Field label="Confidential fields or redaction">
-                  <textarea rows={3} className={inputClass} {...register("dataRules.confidential")} />
+                <Field label="Any fields that must stay private or masked?">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Example: salary, health notes, attachments"
+                    {...register("dataRules.confidential")}
+                  />
                 </Field>
               </div>
             )}
 
             {step === 6 && (
               <div className="space-y-4">
-                <Field label="Monitoring and alerts">
-                  <textarea rows={3} className={inputClass} {...register("operations.monitoring")} />
+                <p className="text-sm text-muted">
+                  Light touch — enough to know who owns what after the call.
+                </p>
+                <Field label="How will we know if something breaks?">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Example: email alert, ticket queue, dashboard"
+                    {...register("operations.monitoring")}
+                  />
                 </Field>
-                <Field label="Who owns support after go-live?">
-                  <textarea rows={2} className={inputClass} {...register("operations.supportOwner")} />
+                <Field label="Who fixes problems after this goes live?">
+                  <textarea
+                    rows={2}
+                    className={inputClass}
+                    placeholder="Name or team"
+                    {...register("operations.supportOwner")}
+                  />
                 </Field>
-                <Field label="Rollback or pause plan">
-                  <textarea rows={3} className={inputClass} {...register("operations.rollback")} />
+                <Field label="If we need to turn this off, what is the plan?">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Example: pause sync, rollback, who approves"
+                    {...register("operations.rollback")}
+                  />
                 </Field>
-                <Field label="Target go-live window">
-                  <textarea rows={2} className={inputClass} {...register("operations.goLive")} />
+                <Field label="Rough timing: when would you like this live?">
+                  <textarea
+                    rows={2}
+                    className={inputClass}
+                    placeholder="Example: next quarter, after a pilot, no rush"
+                    {...register("operations.goLive")}
+                  />
                 </Field>
-                <Field label="Open questions">
+                <Field label="Anything still unclear? Questions for next time">
                   <textarea
                     rows={4}
                     className={inputClass}
-                    placeholder="What still needs a follow-up?"
+                    placeholder="List questions or follow-ups"
                     {...register("openQuestions")}
                   />
                 </Field>
@@ -663,6 +729,7 @@ export default function DiscoveryWizard() {
             <div className="h-[320px] sm:h-[420px]">
               <NucleusScene
                 graph={graph}
+                flows={live.flows}
                 reducedMotion={reducedMotion || narrow}
               />
             </div>
