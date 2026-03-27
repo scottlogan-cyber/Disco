@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import NucleusScene from "@/components/visual/NucleusScene";
-import { PrintSummary } from "@/components/discovery/PrintSummary";
+import { downloadDiscoveryPdf } from "@/lib/export/downloadDiscoveryPdf";
 import {
   defaultDiscoveryPayload,
   discoverySchema,
@@ -142,25 +142,15 @@ export default function DiscoveryWizard() {
     setTimeout(() => setTeamMessage(null), 3500);
   }
 
-  function exportJson() {
+  function exportPdf() {
     const parsed = discoverySchema.safeParse(getValues());
     if (!parsed.success) {
       void trigger();
       return;
     }
-    const blob = new Blob([JSON.stringify(parsed.data, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${parsed.data.meta.title || "discovery"}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function printSummary() {
-    window.print();
+    downloadDiscoveryPdf(parsed.data);
+    setTeamMessage("PDF download started.");
+    setTimeout(() => setTeamMessage(null), 3500);
   }
 
   async function saveTeamLink() {
@@ -301,359 +291,364 @@ export default function DiscoveryWizard() {
             onSubmit={handleSubmit(() => {})}
           >
             {step === 0 && (
-              <div className="space-y-4">
-                <Field label="Discovery title" error={errors.meta?.title?.message}>
-                  <input className={inputClass} {...register("meta.title")} />
-                </Field>
-                <Field label="Client or organization" error={errors.meta?.clientOrg?.message}>
-                  <input className={inputClass} {...register("meta.clientOrg")} />
-                </Field>
-                <Field label="Call date (optional)" error={errors.meta?.date?.message}>
-                  <input className={inputClass} type="date" {...register("meta.date")} />
-                </Field>
-                <Field label="Stakeholders (optional)" error={errors.meta?.stakeholders?.message}>
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Names and roles on the call"
-                    {...register("meta.stakeholders")}
-                  />
-                </Field>
-                <Field
-                  label="What pain are we solving, and what does good look like?"
-                  error={errors.meta?.painAndOutcome?.message}
-                >
-                  <textarea
-                    rows={5}
-                    className={inputClass}
-                    {...register("meta.painAndOutcome")}
-                  />
-                </Field>
-                <Field label="Facilitator notes (optional)" error={errors.meta?.facilitatorNotes?.message}>
-                  <textarea rows={3} className={inputClass} {...register("meta.facilitatorNotes")} />
-                </Field>
+              <div className="space-y-10">
+                <section className="space-y-4">
+                  <h2 className="text-base font-semibold text-foreground">Who and why</h2>
+                  <Field label="Discovery title" error={errors.meta?.title?.message}>
+                    <input className={inputClass} {...register("meta.title")} />
+                  </Field>
+                  <Field label="Client or organization" error={errors.meta?.clientOrg?.message}>
+                    <input className={inputClass} {...register("meta.clientOrg")} />
+                  </Field>
+                  <Field label="Call date (optional)" error={errors.meta?.date?.message}>
+                    <input className={inputClass} type="date" {...register("meta.date")} />
+                  </Field>
+                  <Field label="Stakeholders (optional)" error={errors.meta?.stakeholders?.message}>
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Names and roles on the call"
+                      {...register("meta.stakeholders")}
+                    />
+                  </Field>
+                  <Field
+                    label="What pain are we solving, and what does good look like?"
+                    error={errors.meta?.painAndOutcome?.message}
+                  >
+                    <textarea
+                      rows={5}
+                      className={inputClass}
+                      {...register("meta.painAndOutcome")}
+                    />
+                  </Field>
+                  <Field label="Facilitator notes (optional)" error={errors.meta?.facilitatorNotes?.message}>
+                    <textarea rows={3} className={inputClass} {...register("meta.facilitatorNotes")} />
+                  </Field>
+                </section>
+
+                <section className="space-y-4 border-t border-border pt-8">
+                  <h2 className="text-base font-semibold text-foreground">Systems</h2>
+                  <p className="text-sm text-muted">
+                    List every tool involved. Match names to what you will use in flows (for example,
+                    &quot;Wrike&quot;).
+                  </p>
+                  {systemFields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="space-y-3 rounded-xl border border-border bg-card p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">System {index + 1}</span>
+                        {systemFields.length > 1 ? (
+                          <button
+                            type="button"
+                            className="text-xs text-accent"
+                            onClick={() => removeSystem(index)}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                      <Field
+                        label="Name"
+                        error={errors.systems?.[index]?.name?.message}
+                      >
+                        <input className={inputClass} {...register(`systems.${index}.name`)} />
+                      </Field>
+                      <Field label="Role" error={errors.systems?.[index]?.role?.message}>
+                        <select className={inputClass} {...register(`systems.${index}.role`)}>
+                          <option value="hub">Hub / system of record</option>
+                          <option value="source">Source</option>
+                          <option value="destination">Destination</option>
+                          <option value="bidirectional">Bidirectional peer</option>
+                        </select>
+                      </Field>
+                      <Field label="Owner / SME (optional)">
+                        <input className={inputClass} {...register(`systems.${index}.owner`)} />
+                      </Field>
+                      <Field label="Deployment" error={errors.systems?.[index]?.deployment?.message}>
+                        <select className={inputClass} {...register(`systems.${index}.deployment`)}>
+                          <option value="saas">Cloud (SaaS)</option>
+                          <option value="onprem">On-prem or private cloud</option>
+                          <option value="unknown">Not sure yet</option>
+                        </select>
+                      </Field>
+                      <Field label="Admin access for integration setup">
+                        <select className={inputClass} {...register(`systems.${index}.adminAccess`)}>
+                          <option value="unknown">Not sure</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      </Field>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="rounded-full border border-dashed border-accent px-4 py-2 text-sm font-medium text-accent"
+                    onClick={() =>
+                      appendSystem({
+                        name: "",
+                        role: "destination",
+                        owner: "",
+                        deployment: "saas",
+                        adminAccess: "unknown",
+                      })
+                    }
+                  >
+                    Add another system
+                  </button>
+                  {errors.systems?.message ? (
+                    <p className="text-sm text-accent">{String(errors.systems.message)}</p>
+                  ) : null}
+                </section>
+
+                <section className="space-y-4 border-t border-border pt-8">
+                  <h2 className="text-base font-semibold text-foreground">Wrike specifics</h2>
+                  <p className="text-sm text-muted">
+                    Wrike-specific detail helps everyone speak the same language about spaces, types,
+                    and fields.
+                  </p>
+                  <Field label="Spaces or folders in scope">
+                    <textarea rows={3} className={inputClass} {...register("wrike.spacesFolders")} />
+                  </Field>
+                  <Field label="Item types (tasks, projects, custom types…)">
+                    <textarea rows={3} className={inputClass} {...register("wrike.itemTypes")} />
+                  </Field>
+                  <Field label="Important custom fields">
+                    <textarea rows={3} className={inputClass} {...register("wrike.customFields")} />
+                  </Field>
+                  <Field label="Permissions or visibility sensitivities">
+                    <textarea rows={3} className={inputClass} {...register("wrike.permissions")} />
+                  </Field>
+                </section>
               </div>
             )}
 
             {step === 1 && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted">
-                  List every tool involved. Match names to what you will use in flows (for example,
-                  &quot;Wrike&quot;).
-                </p>
-                {systemFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="space-y-3 rounded-xl border border-border bg-card p-4"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">System {index + 1}</span>
-                      {systemFields.length > 1 ? (
-                        <button
-                          type="button"
-                          className="text-xs text-accent"
-                          onClick={() => removeSystem(index)}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                    <Field
-                      label="Name"
-                      error={errors.systems?.[index]?.name?.message}
+              <div className="space-y-10">
+                <section className="space-y-4">
+                  <h2 className="text-base font-semibold text-foreground">Workato / Unito pattern</h2>
+                  <Field label="Where will this orchestration live?" error={errors.pattern?.tool?.message}>
+                    <select className={inputClass} {...register("pattern.tool")}>
+                      <option value="unknown">Not sure yet</option>
+                      <option value="workato">Workato</option>
+                      <option value="unito">Unito</option>
+                      <option value="both">Workato and Unito</option>
+                    </select>
+                  </Field>
+                  <Field label="Existing recipes, connectors, or Unito flows (optional)">
+                    <textarea
+                      rows={4}
+                      className={inputClass}
+                      placeholder="Links, recipe names, or notes"
+                      {...register("pattern.existingRefs")}
+                    />
+                  </Field>
+                </section>
+
+                <section className="space-y-4 border-t border-border pt-8">
+                  <h2 className="text-base font-semibold text-foreground">Flows</h2>
+                  <p className="text-sm text-muted">
+                    One connection at a time. Use the same tool names you typed in Systems (for
+                    example Wrike and Jira) so the map can draw the lines.
+                  </p>
+                  {flowFields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="space-y-3 rounded-xl border border-border bg-card p-4"
                     >
-                      <input className={inputClass} {...register(`systems.${index}.name`)} />
-                    </Field>
-                    <Field label="Role" error={errors.systems?.[index]?.role?.message}>
-                      <select className={inputClass} {...register(`systems.${index}.role`)}>
-                        <option value="hub">Hub / system of record</option>
-                        <option value="source">Source</option>
-                        <option value="destination">Destination</option>
-                        <option value="bidirectional">Bidirectional peer</option>
-                      </select>
-                    </Field>
-                    <Field label="Owner / SME (optional)">
-                      <input className={inputClass} {...register(`systems.${index}.owner`)} />
-                    </Field>
-                    <Field label="Deployment" error={errors.systems?.[index]?.deployment?.message}>
-                      <select className={inputClass} {...register(`systems.${index}.deployment`)}>
-                        <option value="saas">Cloud (SaaS)</option>
-                        <option value="onprem">On-prem or private cloud</option>
-                        <option value="unknown">Not sure yet</option>
-                      </select>
-                    </Field>
-                    <Field label="Admin access for integration setup">
-                      <select className={inputClass} {...register(`systems.${index}.adminAccess`)}>
-                        <option value="unknown">Not sure</option>
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                      </select>
-                    </Field>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="rounded-full border border-dashed border-accent px-4 py-2 text-sm font-medium text-accent"
-                  onClick={() =>
-                    appendSystem({
-                      name: "",
-                      role: "destination",
-                      owner: "",
-                      deployment: "saas",
-                      adminAccess: "unknown",
-                    })
-                  }
-                >
-                  Add another system
-                </button>
-                {errors.systems?.message ? (
-                  <p className="text-sm text-accent">{String(errors.systems.message)}</p>
-                ) : null}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">Connection {index + 1}</span>
+                        {flowFields.length > 1 ? (
+                          <button
+                            type="button"
+                            className="text-xs text-accent"
+                            onClick={() => removeFlow(index)}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field
+                          label="Sends / updates from"
+                          error={errors.flows?.[index]?.fromSystem?.message}
+                        >
+                          <input
+                            className={inputClass}
+                            placeholder="e.g. Wrike"
+                            {...register(`flows.${index}.fromSystem`)}
+                          />
+                        </Field>
+                        <Field label="Receives in" error={errors.flows?.[index]?.toSystem?.message}>
+                          <input
+                            className={inputClass}
+                            placeholder="e.g. Jira"
+                            {...register(`flows.${index}.toSystem`)}
+                          />
+                        </Field>
+                      </div>
+                      <Field
+                        label="In your own words, what should stay in sync?"
+                        error={errors.flows?.[index]?.objects?.message}
+                      >
+                        <textarea
+                          rows={3}
+                          className={inputClass}
+                          placeholder="Example: tasks and status, or comments when someone updates a task"
+                          {...register(`flows.${index}.objects`)}
+                        />
+                      </Field>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="When should this run?" error={errors.flows?.[index]?.trigger?.message}>
+                          <select className={inputClass} {...register(`flows.${index}.trigger`)}>
+                            <option value="event">When something changes</option>
+                            <option value="schedule">On a schedule</option>
+                            <option value="manual">When someone clicks “run”</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </Field>
+                        <Field label="One way or both ways?" error={errors.flows?.[index]?.direction?.message}>
+                          <select className={inputClass} {...register(`flows.${index}.direction`)}>
+                            <option value="one_way">One way</option>
+                            <option value="bidirectional">Both ways</option>
+                          </select>
+                        </Field>
+                      </div>
+                      <Field label="If you picked Other, say what you mean">
+                        <input
+                          className={inputClass}
+                          placeholder="Optional"
+                          {...register(`flows.${index}.triggerDetail`)}
+                        />
+                      </Field>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="How often (optional)">
+                          <input
+                            className={inputClass}
+                            placeholder="e.g. every hour, daily"
+                            {...register(`flows.${index}.frequency`)}
+                          />
+                        </Field>
+                        <Field label="Rough volume (optional)">
+                          <input
+                            className={inputClass}
+                            placeholder="e.g. hundreds of updates per day"
+                            {...register(`flows.${index}.volumeEstimate`)}
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="rounded-full border border-dashed border-accent px-4 py-2 text-sm font-medium text-accent"
+                    onClick={() =>
+                      appendFlow({
+                        fromSystem: "",
+                        toSystem: "",
+                        objects: "",
+                        trigger: "event",
+                        triggerDetail: "",
+                        direction: "one_way",
+                        frequency: "",
+                        volumeEstimate: "",
+                      })
+                    }
+                  >
+                    Add another flow
+                  </button>
+                </section>
               </div>
             )}
 
             {step === 2 && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted">
-                  Wrike-specific detail helps everyone speak the same language about spaces, types,
-                  and fields.
-                </p>
-                <Field label="Spaces or folders in scope">
-                  <textarea rows={3} className={inputClass} {...register("wrike.spacesFolders")} />
-                </Field>
-                <Field label="Item types (tasks, projects, custom types…)">
-                  <textarea rows={3} className={inputClass} {...register("wrike.itemTypes")} />
-                </Field>
-                <Field label="Important custom fields">
-                  <textarea rows={3} className={inputClass} {...register("wrike.customFields")} />
-                </Field>
-                <Field label="Permissions or visibility sensitivities">
-                  <textarea rows={3} className={inputClass} {...register("wrike.permissions")} />
-                </Field>
-              </div>
-            )}
+              <div className="space-y-10">
+                <section className="space-y-4">
+                  <h2 className="text-base font-semibold text-foreground">Keeping data in sync</h2>
+                  <p className="text-sm text-muted">
+                    Skip anything you do not know yet — these are conversation starters, not a test.
+                  </p>
+                  <Field label="How do we know it is the same work item in both tools?">
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Example: same email, same ID, or a link field"
+                      {...register("dataRules.identity")}
+                    />
+                  </Field>
+                  <Field label="If the same thing gets created twice, what should happen?">
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Example: keep one, merge, or flag for review"
+                      {...register("dataRules.deduping")}
+                    />
+                  </Field>
+                  <Field label="When something is deleted in one tool, what should happen in the other?">
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Example: delete, leave, or archive"
+                      {...register("dataRules.deletes")}
+                    />
+                  </Field>
+                  <Field label="Any fields that must stay private or masked?">
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Example: salary, health notes, attachments"
+                      {...register("dataRules.confidential")}
+                    />
+                  </Field>
+                </section>
 
-            {step === 3 && (
-              <div className="space-y-4">
-                <Field label="Where will this orchestration live?" error={errors.pattern?.tool?.message}>
-                  <select className={inputClass} {...register("pattern.tool")}>
-                    <option value="unknown">Not sure yet</option>
-                    <option value="workato">Workato</option>
-                    <option value="unito">Unito</option>
-                    <option value="both">Workato and Unito</option>
-                  </select>
-                </Field>
-                <Field label="Existing recipes, connectors, or Unito flows (optional)">
-                  <textarea
-                    rows={4}
-                    className={inputClass}
-                    placeholder="Links, recipe names, or notes"
-                    {...register("pattern.existingRefs")}
-                  />
-                </Field>
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted">
-                  One connection at a time. Use the same tool names you typed in Systems (for
-                  example Wrike and Jira) so the map can draw the lines.
-                </p>
-                {flowFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="space-y-3 rounded-xl border border-border bg-card p-4"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">Connection {index + 1}</span>
-                      {flowFields.length > 1 ? (
-                        <button
-                          type="button"
-                          className="text-xs text-accent"
-                          onClick={() => removeFlow(index)}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field
-                        label="Sends / updates from"
-                        error={errors.flows?.[index]?.fromSystem?.message}
-                      >
-                        <input
-                          className={inputClass}
-                          placeholder="e.g. Wrike"
-                          {...register(`flows.${index}.fromSystem`)}
-                        />
-                      </Field>
-                      <Field label="Receives in" error={errors.flows?.[index]?.toSystem?.message}>
-                        <input
-                          className={inputClass}
-                          placeholder="e.g. Jira"
-                          {...register(`flows.${index}.toSystem`)}
-                        />
-                      </Field>
-                    </div>
-                    <Field
-                      label="In your own words, what should stay in sync?"
-                      error={errors.flows?.[index]?.objects?.message}
-                    >
-                      <textarea
-                        rows={3}
-                        className={inputClass}
-                        placeholder="Example: tasks and status, or comments when someone updates a task"
-                        {...register(`flows.${index}.objects`)}
-                      />
-                    </Field>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="When should this run?" error={errors.flows?.[index]?.trigger?.message}>
-                        <select className={inputClass} {...register(`flows.${index}.trigger`)}>
-                          <option value="event">When something changes</option>
-                          <option value="schedule">On a schedule</option>
-                          <option value="manual">When someone clicks “run”</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </Field>
-                      <Field label="One way or both ways?" error={errors.flows?.[index]?.direction?.message}>
-                        <select className={inputClass} {...register(`flows.${index}.direction`)}>
-                          <option value="one_way">One way</option>
-                          <option value="bidirectional">Both ways</option>
-                        </select>
-                      </Field>
-                    </div>
-                    <Field label="If you picked Other, say what you mean">
-                      <input
-                        className={inputClass}
-                        placeholder="Optional"
-                        {...register(`flows.${index}.triggerDetail`)}
-                      />
-                    </Field>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="How often (optional)">
-                        <input
-                          className={inputClass}
-                          placeholder="e.g. every hour, daily"
-                          {...register(`flows.${index}.frequency`)}
-                        />
-                      </Field>
-                      <Field label="Rough volume (optional)">
-                        <input
-                          className={inputClass}
-                          placeholder="e.g. hundreds of updates per day"
-                          {...register(`flows.${index}.volumeEstimate`)}
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="rounded-full border border-dashed border-accent px-4 py-2 text-sm font-medium text-accent"
-                  onClick={() =>
-                    appendFlow({
-                      fromSystem: "",
-                      toSystem: "",
-                      objects: "",
-                      trigger: "event",
-                      triggerDetail: "",
-                      direction: "one_way",
-                      frequency: "",
-                      volumeEstimate: "",
-                    })
-                  }
-                >
-                  Add another flow
-                </button>
-              </div>
-            )}
-
-            {step === 5 && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted">
-                  Skip anything you do not know yet — these are conversation starters, not a test.
-                </p>
-                <Field label="How do we know it is the same work item in both tools?">
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Example: same email, same ID, or a link field"
-                    {...register("dataRules.identity")}
-                  />
-                </Field>
-                <Field label="If the same thing gets created twice, what should happen?">
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Example: keep one, merge, or flag for review"
-                    {...register("dataRules.deduping")}
-                  />
-                </Field>
-                <Field label="When something is deleted in one tool, what should happen in the other?">
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Example: delete, leave, or archive"
-                    {...register("dataRules.deletes")}
-                  />
-                </Field>
-                <Field label="Any fields that must stay private or masked?">
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Example: salary, health notes, attachments"
-                    {...register("dataRules.confidential")}
-                  />
-                </Field>
-              </div>
-            )}
-
-            {step === 6 && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted">
-                  Light touch — enough to know who owns what after the call.
-                </p>
-                <Field label="How will we know if something breaks?">
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Example: email alert, ticket queue, dashboard"
-                    {...register("operations.monitoring")}
-                  />
-                </Field>
-                <Field label="Who fixes problems after this goes live?">
-                  <textarea
-                    rows={2}
-                    className={inputClass}
-                    placeholder="Name or team"
-                    {...register("operations.supportOwner")}
-                  />
-                </Field>
-                <Field label="If we need to turn this off, what is the plan?">
-                  <textarea
-                    rows={3}
-                    className={inputClass}
-                    placeholder="Example: pause sync, rollback, who approves"
-                    {...register("operations.rollback")}
-                  />
-                </Field>
-                <Field label="Rough timing: when would you like this live?">
-                  <textarea
-                    rows={2}
-                    className={inputClass}
-                    placeholder="Example: next quarter, after a pilot, no rush"
-                    {...register("operations.goLive")}
-                  />
-                </Field>
-                <Field label="Anything still unclear? Questions for next time">
-                  <textarea
-                    rows={4}
-                    className={inputClass}
-                    placeholder="List questions or follow-ups"
-                    {...register("openQuestions")}
-                  />
-                </Field>
+                <section className="space-y-4 border-t border-border pt-8">
+                  <h2 className="text-base font-semibold text-foreground">Launch and follow-ups</h2>
+                  <p className="text-sm text-muted">
+                    Light touch — enough to know who owns what after the call.
+                  </p>
+                  <Field label="How will we know if something breaks?">
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Example: email alert, ticket queue, dashboard"
+                      {...register("operations.monitoring")}
+                    />
+                  </Field>
+                  <Field label="Who fixes problems after this goes live?">
+                    <textarea
+                      rows={2}
+                      className={inputClass}
+                      placeholder="Name or team"
+                      {...register("operations.supportOwner")}
+                    />
+                  </Field>
+                  <Field label="If we need to turn this off, what is the plan?">
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder="Example: pause sync, rollback, who approves"
+                      {...register("operations.rollback")}
+                    />
+                  </Field>
+                  <Field label="Rough timing: when would you like this live?">
+                    <textarea
+                      rows={2}
+                      className={inputClass}
+                      placeholder="Example: next quarter, after a pilot, no rush"
+                      {...register("operations.goLive")}
+                    />
+                  </Field>
+                  <Field label="Anything still unclear? Questions for next time">
+                    <textarea
+                      rows={4}
+                      className={inputClass}
+                      placeholder="List questions or follow-ups"
+                      {...register("openQuestions")}
+                    />
+                  </Field>
+                </section>
               </div>
             )}
 
@@ -689,17 +684,10 @@ export default function DiscoveryWizard() {
                   </button>
                   <button
                     type="button"
-                    onClick={exportJson}
+                    onClick={exportPdf}
                     className="rounded-full bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-border"
                   >
-                    Download JSON
-                  </button>
-                  <button
-                    type="button"
-                    onClick={printSummary}
-                    className="rounded-full bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-border"
-                  >
-                    Print summary
+                    Export PDF
                   </button>
                   <button
                     type="button"
@@ -711,8 +699,8 @@ export default function DiscoveryWizard() {
                   </button>
                 </div>
                 <p className="text-xs text-muted">
-                  Share links keep data in the URL (great for continuity). Team links need Redis
-                  configured on Vercel — see README.
+                  Share links keep your answers in the URL. PDF export downloads a summary file.
+                  Team links need Redis configured in Vercel project settings.
                 </p>
               </div>
             ) : null}
@@ -743,9 +731,6 @@ export default function DiscoveryWizard() {
         </aside>
       </div>
 
-      <div className="hidden print-summary">
-        <PrintSummary data={live} />
-      </div>
     </div>
   );
 }

@@ -1,12 +1,20 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Html, Line, OrbitControls } from "@react-three/drei";
-import { Suspense, useMemo, useRef } from "react";
+import {
+  ContactShadows,
+  Environment,
+  Html,
+  Line,
+  OrbitControls,
+} from "@react-three/drei";
+import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { IntegrationGraph } from "@/lib/graph/buildGraphFromDiscovery";
 import { graphHasRenderableContent } from "@/lib/graph/buildGraphFromDiscovery";
 import type { DiscoveryPayload } from "@/lib/schema/discovery";
+
+const SPHERE_SEG = 64;
 
 function layoutPositions(
   graph: IntegrationGraph
@@ -42,34 +50,53 @@ function truncateLabel(text: string, max: number): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
-function SphereNode({
+function CenterOrb({
   position,
   label,
   radius,
-  color,
-  emissive,
 }: {
   position: THREE.Vector3;
   label: string;
   radius: number;
-  color: string;
-  emissive: string;
 }) {
   const short = truncateLabel(label, 22);
+  const glowRef = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (!glowRef.current?.material) return;
+    const m = glowRef.current.material as THREE.MeshStandardMaterial;
+    const w = 0.42 + Math.sin(state.clock.elapsedTime * 0.9) * 0.06;
+    m.emissiveIntensity = w;
+  });
+
   return (
     <group position={position}>
       <mesh castShadow receiveShadow>
-        <sphereGeometry args={[radius, 40, 40]} />
+        <sphereGeometry args={[radius, SPHERE_SEG, SPHERE_SEG]} />
+        <meshPhysicalMaterial
+          color="#ffd4c4"
+          emissive="#ff6b4a"
+          emissiveIntensity={0.48}
+          roughness={0.18}
+          metalness={0.22}
+          clearcoat={0.85}
+          clearcoatRoughness={0.15}
+          reflectivity={0.9}
+          envMapIntensity={1.1}
+        />
+      </mesh>
+      <mesh ref={glowRef} scale={1.42}>
+        <sphereGeometry args={[radius, 32, 32]} />
         <meshStandardMaterial
-          color={color}
-          emissive={emissive}
-          emissiveIntensity={0.35}
-          roughness={0.45}
-          metalness={0.05}
+          color="#ff8a65"
+          emissive="#ff6b4a"
+          emissiveIntensity={0.42}
+          transparent
+          opacity={0.22}
+          depthWrite={false}
         />
       </mesh>
       <Html
-        position={[0, radius + 0.55, 0]}
+        position={[0, radius + 0.62, 0]}
         center
         distanceFactor={8}
         zIndexRange={[100, 0]}
@@ -79,7 +106,7 @@ function SphereNode({
       >
         <span
           title={label}
-          className="inline-block max-w-[140px] rounded-full border border-border bg-card/98 px-2.5 py-1 text-center text-[11px] font-medium leading-tight text-foreground shadow-md"
+          className="inline-block max-w-[150px] rounded-full border border-[#e8a090]/80 bg-white/95 px-3 py-1.5 text-center text-[11px] font-semibold leading-tight text-[#4a3428] shadow-[0_4px_20px_rgba(224,122,95,0.35)]"
         >
           {short}
         </span>
@@ -88,22 +115,66 @@ function SphereNode({
   );
 }
 
-/** Lines only — copy lives in the legend below to avoid overlap and occlusion. */
+function SatelliteOrb({
+  position,
+  label,
+  radius,
+}: {
+  position: THREE.Vector3;
+  label: string;
+  radius: number;
+}) {
+  const short = truncateLabel(label, 22);
+  return (
+    <group position={position}>
+      <mesh castShadow receiveShadow>
+        <sphereGeometry args={[radius, SPHERE_SEG, SPHERE_SEG]} />
+        <meshPhysicalMaterial
+          color="#fff5eb"
+          emissive="#d4a574"
+          emissiveIntensity={0.22}
+          roughness={0.28}
+          metalness={0.35}
+          clearcoat={0.55}
+          clearcoatRoughness={0.25}
+          envMapIntensity={0.95}
+        />
+      </mesh>
+      <Html
+        position={[0, radius + 0.52, 0]}
+        center
+        distanceFactor={8}
+        zIndexRange={[100, 0]}
+        occlude={false}
+        style={{ pointerEvents: "none" }}
+        className="select-none"
+      >
+        <span
+          title={label}
+          className="inline-block max-w-[140px] rounded-full border border-[#e5d4c8] bg-white/95 px-2.5 py-1 text-center text-[11px] font-medium leading-tight text-[#4a3428] shadow-[0_3px_14px_rgba(180,140,100,0.25)]"
+        >
+          {short}
+        </span>
+      </Html>
+    </group>
+  );
+}
+
 function EdgeArc({ from, to }: { from: THREE.Vector3; to: THREE.Vector3 }) {
   const points = useMemo(() => {
     const mid = from.clone().add(to).multiplyScalar(0.5);
-    mid.y += 1.15;
+    mid.y += 1.2;
     const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
-    return curve.getPoints(40);
+    return curve.getPoints(48);
   }, [from, to]);
 
   return (
     <Line
       points={points}
-      color="#c49a6c"
-      lineWidth={2}
+      color="#e09050"
+      lineWidth={2.5}
       transparent
-      opacity={0.9}
+      opacity={0.95}
     />
   );
 }
@@ -119,30 +190,37 @@ function SceneContent({
 
   const inner = (
     <>
-      <ambientLight intensity={0.88} color="#fff5eb" />
+      <color attach="background" args={["#fff5ec"]} />
+      <fog attach="fog" args={["#fff5ec", 12, 38]} />
+      <hemisphereLight intensity={0.55} color="#fff8f0" groundColor="#ffd4c8" />
+      <ambientLight intensity={0.35} color="#fff0e6" />
       <directionalLight
-        position={[6, 12, 8]}
-        intensity={1.05}
-        color="#fff0e0"
+        position={[8, 14, 10]}
+        intensity={1.35}
+        color="#ffffff"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
       />
-      <pointLight position={[-5, 2, 5]} intensity={0.45} color="#ffd4c4" />
-      <SphereNode
+      <pointLight position={[-6, 4, 6]} intensity={0.85} color="#ffb090" distance={22} />
+      <pointLight position={[4, -2, -4]} intensity={0.45} color="#a8c8ff" distance={16} />
+
+      <Suspense fallback={null}>
+        <Environment preset="sunset" environmentIntensity={0.65} />
+      </Suspense>
+
+      <CenterOrb
         position={positions.get("center")!}
         label={graph.nodes.find((n) => n.id === "center")?.label ?? ""}
-        radius={0.55}
-        color="#f4d4c8"
-        emissive="#e07a5f"
+        radius={0.56}
       />
       {graph.nodes
         .filter((n) => n.kind === "system")
         .map((n) => (
-          <SphereNode
+          <SatelliteOrb
             key={n.id}
             position={positions.get(n.id)!}
             label={n.label}
-            radius={0.4}
-            color="#fff7f0"
-            emissive="#c9a87c"
+            radius={0.41}
           />
         ))}
       {graph.edges.map((e) => {
@@ -151,16 +229,26 @@ function SceneContent({
         if (!a || !b) return null;
         return <EdgeArc key={e.id} from={a} to={b} />;
       })}
+
+      <ContactShadows
+        position={[0, -2.35, 0]}
+        opacity={0.45}
+        scale={16}
+        blur={2.2}
+        far={5}
+        color="#8a6048"
+      />
+
       <OrbitControls
         enableZoom
         enablePan={false}
         minPolarAngle={Math.PI / 3.4}
-        maxPolarAngle={Math.PI / 2.1}
+        maxPolarAngle={Math.PI / 2.05}
         autoRotate={false}
         enableDamping
-        dampingFactor={0.05}
+        dampingFactor={0.055}
         minDistance={8}
-        maxDistance={22}
+        maxDistance={24}
       />
     </>
   );
@@ -178,7 +266,7 @@ function FlowLegend({
 }) {
   if (!flows.length) return null;
   return (
-    <div className="border-t border-border bg-card/60 px-3 py-3">
+    <div className="border-t border-[#edd9cc] bg-gradient-to-b from-white/90 to-[#fff8f2] px-3 py-3">
       <p className="mb-2 text-xs font-semibold text-foreground">
         What this map is showing
       </p>
@@ -198,7 +286,10 @@ function FlowLegend({
                     ? "when someone runs it"
                     : f.trigger;
           return (
-            <li key={i} className="rounded-lg bg-background/80 px-2 py-2">
+            <li
+              key={i}
+              className="rounded-lg border border-border/60 bg-white/80 px-2 py-2 shadow-sm"
+            >
               <span className="font-medium text-foreground">
                 {from} → {to}
               </span>
@@ -212,6 +303,14 @@ function FlowLegend({
   );
 }
 
+function useDevicePixelRatioRange(): [number, number] {
+  return useState<[number, number]>(() => {
+    if (typeof window === "undefined") return [1.5, 2.25];
+    const r = window.devicePixelRatio || 1;
+    return [1.25, Math.min(2.5, Math.max(1.5, r))];
+  })[0];
+}
+
 export default function NucleusScene({
   graph,
   flows,
@@ -222,9 +321,10 @@ export default function NucleusScene({
   reducedMotion?: boolean;
 }) {
   const ready = graphHasRenderableContent(graph);
+  const dprRange = useDevicePixelRatioRange();
 
   return (
-    <div className="relative flex h-full min-h-[280px] w-full flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-[#fff8f2] to-[#fff0e6]">
+    <div className="relative flex h-full min-h-[280px] w-full flex-col overflow-hidden rounded-2xl border border-[#edd9cc] bg-gradient-to-br from-[#fffaf5] via-[#fff3e8] to-[#ffe8dc] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_32px_rgba(200,120,80,0.12)]">
       {!ready ? (
         <div className="flex min-h-[280px] flex-1 items-center justify-center px-6 text-center">
           <p className="max-w-sm text-sm leading-relaxed text-muted">
@@ -244,9 +344,16 @@ export default function NucleusScene({
               }
             >
               <Canvas
-                camera={{ position: [0, 2.4, 13], fov: 40 }}
-                dpr={[1, 1.5]}
-                gl={{ antialias: true, alpha: true, depth: true }}
+                shadows
+                camera={{ position: [0, 2.5, 13.5], fov: 38 }}
+                dpr={dprRange}
+                gl={{
+                  antialias: true,
+                  alpha: false,
+                  depth: true,
+                  powerPreference: "high-performance",
+                  stencil: false,
+                }}
                 className="h-full w-full"
               >
                 <SceneContent graph={graph} reducedMotion={reducedMotion} />

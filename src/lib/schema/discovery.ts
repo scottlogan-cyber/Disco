@@ -143,23 +143,15 @@ export const defaultDiscoveryPayload: DiscoveryPayload = {
   openQuestions: "",
 };
 
-/** Field paths per wizard step (0-based). Empty = no required gate for that step. */
+/** Field paths per wizard step (0-based). Empty = no required gate for that step. Three pages total. */
 export const DISCOVERY_STEP_FIELDS: string[][] = [
-  ["meta.title", "meta.clientOrg", "meta.painAndOutcome"],
-  ["systems"],
-  [],
-  ["pattern.tool"],
-  ["flows"],
-  [],
+  ["meta.title", "meta.clientOrg", "meta.painAndOutcome", "systems"],
+  ["pattern.tool", "flows"],
   [],
 ];
 
 export const DISCOVERY_STEP_TITLES = [
-  "Who and why",
-  "Systems",
-  "Wrike specifics",
-  "Workato / Unito pattern",
-  "Flows",
-  "Keeping data in sync",
-  "Launch and open questions",
+  "You, your tools, and Wrike",
+  "Patterns and connections",
+  "Data, launch, and follow-ups",
 ];

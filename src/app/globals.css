@@ -33,7 +33,4 @@ body {
   .print-only {
     display: block !important;
   }
-  .print-summary {
-    display: block !important;
-  }
 }
