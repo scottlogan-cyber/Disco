@@ -4,7 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import NucleusScene from "@/components/visual/NucleusScene";
 import { downloadDiscoveryPdf } from "@/lib/export/downloadDiscoveryPdf";
 import {
@@ -17,7 +17,6 @@ import {
 import { buildGraphFromDiscovery } from "@/lib/graph/buildGraphFromDiscovery";
 import {
   decodeHashToDiscovery,
-  encodeDiscoveryToHash,
   readHashFromWindow,
 } from "@/lib/share/stateCodec";
 import { useMediaReducedMotion } from "@/lib/hooks/useMediaReducedMotion";
@@ -28,7 +27,6 @@ const inputClass =
   "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25";
 
 export default function DiscoveryWizard() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const remoteId = searchParams.get("id");
 
@@ -36,9 +34,7 @@ export default function DiscoveryWizard() {
   const [shareError, setShareError] = useState<string | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(!!remoteId);
   const [remoteError, setRemoteError] = useState<string | null>(null);
-  const [teamId, setTeamId] = useState<string | null>(remoteId);
-  const [teamBusy, setTeamBusy] = useState(false);
-  const [teamMessage, setTeamMessage] = useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [previewTab, setPreviewTab] = useState<"form" | "preview">("form");
   const [transcriptPaste, setTranscriptPaste] = useState("");
   const [importLoading, setImportLoading] = useState(false);
@@ -109,7 +105,6 @@ export default function DiscoveryWizard() {
       .then((data) => {
         if (cancelled) return;
         reset(data);
-        setTeamId(remoteId);
       })
       .catch((e: Error) => {
         if (!cancelled) setRemoteError(e.message);
@@ -136,19 +131,6 @@ export default function DiscoveryWizard() {
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  async function copyShareLink() {
-    const parsed = discoverySchema.safeParse(getValues());
-    if (!parsed.success) {
-      await trigger();
-      return;
-    }
-    const hash = encodeDiscoveryToHash(parsed.data);
-    const url = `${window.location.origin}/discovery#${hash}`;
-    await navigator.clipboard.writeText(url);
-    setTeamMessage("Share link copied to your clipboard.");
-    setTimeout(() => setTeamMessage(null), 3500);
-  }
-
   function exportPdf() {
     const parsed = discoverySchema.safeParse(getValues());
     if (!parsed.success) {
@@ -156,53 +138,8 @@ export default function DiscoveryWizard() {
       return;
     }
     downloadDiscoveryPdf(parsed.data);
-    setTeamMessage("PDF download started.");
-    setTimeout(() => setTeamMessage(null), 3500);
-  }
-
-  async function saveTeamLink() {
-    const parsed = discoverySchema.safeParse(getValues());
-    if (!parsed.success) {
-      await trigger();
-      return;
-    }
-    setTeamBusy(true);
-    setTeamMessage(null);
-    try {
-      if (teamId) {
-        const res = await fetch(`/api/discoveries/${teamId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(parsed.data),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error((j as { error?: string }).error ?? "Could not save.");
-        }
-        setTeamMessage("Team discovery saved.");
-      } else {
-        const res = await fetch("/api/discoveries", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(parsed.data),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(
-            (j as { error?: string }).error ?? "Could not create team link."
-          );
-        }
-        const { id } = (await res.json()) as { id: string };
-        setTeamId(id);
-        router.replace(`/discovery?id=${id}`);
-        setTeamMessage("Team link created — bookmark this URL.");
-      }
-    } catch (e) {
-      setTeamMessage((e as Error).message);
-    } finally {
-      setTeamBusy(false);
-      setTimeout(() => setTeamMessage(null), 5000);
-    }
+    setFeedbackMessage("PDF download started.");
+    setTimeout(() => setFeedbackMessage(null), 3500);
   }
 
   const showShareActions = step >= 1;
@@ -264,8 +201,8 @@ export default function DiscoveryWizard() {
     setTranscriptPaste("");
     setImportError(null);
     setStep(0);
-    setTeamMessage("Form filled from transcript. Review and edit any page.");
-    setTimeout(() => setTeamMessage(null), 4500);
+    setFeedbackMessage("Form filled from transcript. Review and edit any page.");
+    setTimeout(() => setFeedbackMessage(null), 4500);
   }
 
   if (remoteLoading) {
@@ -324,8 +261,8 @@ export default function DiscoveryWizard() {
             {shareError} You can still fill out a new discovery below.
           </p>
         ) : null}
-        {teamMessage ? (
-          <p className="mx-auto mt-3 max-w-6xl text-sm text-muted">{teamMessage}</p>
+        {feedbackMessage ? (
+          <p className="mx-auto mt-3 max-w-6xl text-sm text-muted">{feedbackMessage}</p>
         ) : null}
       </div>
 
@@ -454,6 +391,24 @@ export default function DiscoveryWizard() {
                 ) : null}
               </div>
             </details>
+
+            {showShareActions ? (
+              <div className="rounded-xl border border-border bg-card/70 p-4">
+                <p className="text-sm font-medium text-foreground">Export</p>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={exportPdf}
+                    className="rounded-full bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-border hover:bg-accent-soft/40"
+                  >
+                    Export PDF
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Downloads a summary PDF of your discovery answers.
+                </p>
+              </div>
+            ) : null}
 
             {step === 0 && (
               <div className="space-y-10">
@@ -835,40 +790,6 @@ export default function DiscoveryWizard() {
                 Next
               </button>
             </div>
-
-            {showShareActions ? (
-              <div className="space-y-3 rounded-xl border border-border bg-accent-soft/40 p-4">
-                <p className="text-sm font-medium text-foreground">Share and export</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void copyShareLink()}
-                    className="rounded-full bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-border"
-                  >
-                    Copy share link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={exportPdf}
-                    className="rounded-full bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-border"
-                  >
-                    Export PDF
-                  </button>
-                  <button
-                    type="button"
-                    disabled={teamBusy}
-                    onClick={() => void saveTeamLink()}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-                  >
-                    {teamId ? "Save team discovery" : "Save to team link"}
-                  </button>
-                </div>
-                <p className="text-xs text-muted">
-                  Share links keep your answers in the URL. PDF export downloads a summary file.
-                  Team links need Redis configured in Vercel project settings.
-                </p>
-              </div>
-            ) : null}
           </form>
         </section>
 
@@ -886,12 +807,17 @@ export default function DiscoveryWizard() {
                 reducedMotion={reducedMotion || narrow}
               />
             </div>
-            {graph.overflowSystemCount > 0 ? (
-              <p className="text-xs text-muted">
-                Showing {graph.nodes.length - 1} systems in the scene; +
-                {graph.overflowSystemCount} more are named in your lists but hidden for clarity.
+            <div className="rounded-xl border border-[#c4a574]/45 bg-[#e8d4bc] px-3 py-3 text-xs leading-relaxed text-[#4a3d32] shadow-sm">
+              <p className="font-medium text-[#3d3429]">
+                The map updates as you add systems and flows.
               </p>
-            ) : null}
+              {graph.overflowSystemCount > 0 ? (
+                <p className="mt-2 text-[#5c4e42]">
+                  Showing {graph.nodes.length - 1} systems in the scene; +
+                  {graph.overflowSystemCount} more are named in your lists but hidden for clarity.
+                </p>
+              ) : null}
+            </div>
           </div>
         </aside>
       </div>
