@@ -142,8 +142,6 @@ export default function DiscoveryWizard() {
     setTimeout(() => setFeedbackMessage(null), 3500);
   }
 
-  const showShareActions = step >= 1;
-
   function onTranscriptFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -267,149 +265,35 @@ export default function DiscoveryWizard() {
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-8 lg:flex-row">
-        <section className="no-print flex-1 space-y-6 lg:max-w-xl">
-          {narrow ? (
-            <div className="flex rounded-full bg-accent-soft p-1 text-xs font-medium">
-              <button
-                type="button"
-                className={`flex-1 rounded-full py-2 ${
-                  previewTab === "form" ? "bg-card shadow-sm" : ""
-                }`}
-                onClick={() => setPreviewTab("form")}
-              >
-                Questions
-              </button>
-              <button
-                type="button"
-                className={`flex-1 rounded-full py-2 ${
-                  previewTab === "preview" ? "bg-card shadow-sm" : ""
-                }`}
-                onClick={() => setPreviewTab("preview")}
-              >
-                Nucleus preview
-              </button>
-            </div>
-          ) : null}
-
-          <form
-            className={`space-y-6 ${narrow && previewTab !== "form" ? "hidden" : ""}`}
-            onSubmit={handleSubmit(() => {})}
-          >
-            <details className="group rounded-xl border border-border bg-card/60 p-4 open:bg-card">
-              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
-                <span className="inline-flex items-center gap-2">
-                  Import from call transcript
-                  <span className="text-xs font-normal text-muted">
-                    (paste or upload .txt / .vtt)
-                  </span>
-                </span>
-              </summary>
-              <p className="mt-3 text-xs leading-relaxed text-muted">
-                Text is sent to this app&apos;s server and then to OpenAI to map into the
-                form. Do not paste highly sensitive content unless your environment allows
-                it.
-              </p>
-              <div className="mt-3 space-y-3">
-                <textarea
-                  value={transcriptPaste}
-                  onChange={(e) => {
-                    setTranscriptPaste(e.target.value);
-                    setImportError(null);
-                  }}
-                  rows={5}
-                  className={inputClass}
-                  placeholder="Paste a Zoom transcript or meeting notes here…"
-                  disabled={importLoading}
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer rounded-full border border-border bg-background px-4 py-2 text-xs font-medium text-foreground hover:bg-accent-soft/50">
-                    Upload file
-                    <input
-                      type="file"
-                      accept=".txt,.vtt,text/plain"
-                      className="sr-only"
-                      onChange={onTranscriptFileChange}
-                      disabled={importLoading}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    disabled={importLoading}
-                    onClick={() => void runTranscriptImport()}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-                  >
-                    {importLoading ? "Extracting…" : "Extract with AI"}
-                  </button>
-                </div>
-                {importError ? (
-                  <p className="text-sm text-accent">{importError}</p>
-                ) : null}
-                {pendingImport ? (
-                  <div className="rounded-xl border border-accent/35 bg-accent-soft/50 p-4">
-                    <p className="text-sm font-medium text-foreground">
-                      Preview — check details, then apply
-                    </p>
-                    <ul className="mt-2 space-y-1 text-xs text-muted">
-                      <li>
-                        <span className="font-medium text-foreground">Title:</span>{" "}
-                        {pendingImport.meta.title}
-                      </li>
-                      <li>
-                        <span className="font-medium text-foreground">Client:</span>{" "}
-                        {pendingImport.meta.clientOrg}
-                      </li>
-                      <li>
-                        <span className="font-medium text-foreground">Systems:</span>{" "}
-                        {pendingImport.systems.length}
-                      </li>
-                      <li>
-                        <span className="font-medium text-foreground">Flows:</span>{" "}
-                        {pendingImport.flows.length}
-                      </li>
-                      <li>
-                        <span className="font-medium text-foreground">Pattern:</span>{" "}
-                        {pendingImport.pattern.tool}
-                      </li>
-                    </ul>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={applyTranscriptImport}
-                        className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white"
-                      >
-                        Apply to form
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPendingImport(null)}
-                        className="rounded-full border border-border px-4 py-2 text-xs font-medium text-foreground"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </details>
-
-            {showShareActions ? (
-              <div className="rounded-xl border border-border bg-card/70 p-4">
-                <p className="text-sm font-medium text-foreground">Export</p>
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={exportPdf}
-                    className="rounded-full bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-border hover:bg-accent-soft/40"
-                  >
-                    Export PDF
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-muted">
-                  Downloads a summary PDF of your discovery answers.
-                </p>
+        <form
+          className="no-print flex w-full flex-1 flex-col gap-6 lg:flex-row lg:items-start"
+          onSubmit={handleSubmit(() => {})}
+        >
+          <section className="no-print flex-1 space-y-6 lg:max-w-xl">
+            {narrow ? (
+              <div className="flex rounded-full bg-accent-soft p-1 text-xs font-medium">
+                <button
+                  type="button"
+                  className={`flex-1 rounded-full py-2 ${
+                    previewTab === "form" ? "bg-card shadow-sm" : ""
+                  }`}
+                  onClick={() => setPreviewTab("form")}
+                >
+                  Questions
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 rounded-full py-2 ${
+                    previewTab === "preview" ? "bg-card shadow-sm" : ""
+                  }`}
+                  onClick={() => setPreviewTab("preview")}
+                >
+                  Nucleus preview
+                </button>
               </div>
             ) : null}
 
+            <div className={`space-y-6 ${narrow && previewTab !== "form" ? "hidden" : ""}`}>
             {step === 0 && (
               <div className="space-y-10">
                 <section className="space-y-4">
@@ -790,38 +674,216 @@ export default function DiscoveryWizard() {
                 Next
               </button>
             </div>
-          </form>
-        </section>
+            </div>
 
-        <aside
-          className={`no-print flex-1 lg:sticky lg:top-6 lg:self-start ${
-            narrow && previewTab !== "preview" ? "hidden" : ""
-          }`}
-        >
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-foreground">Nucleus map</h2>
-            <div className="h-[320px] sm:h-[420px]">
-              <NucleusScene
-                graph={graph}
-                flows={live.flows}
-                reducedMotion={reducedMotion || narrow}
+            {narrow && previewTab === "form" ? (
+              <div className="lg:hidden">
+                <ImportExportBeigePanel
+                  transcriptPaste={transcriptPaste}
+                  onTranscriptPasteChange={(v) => {
+                    setTranscriptPaste(v);
+                    setImportError(null);
+                  }}
+                  importLoading={importLoading}
+                  importError={importError}
+                  pendingImport={pendingImport}
+                  onTranscriptFileChange={onTranscriptFileChange}
+                  runTranscriptImport={runTranscriptImport}
+                  applyTranscriptImport={applyTranscriptImport}
+                  clearPendingImport={() => setPendingImport(null)}
+                  exportPdf={exportPdf}
+                />
+              </div>
+            ) : null}
+          </section>
+
+          <aside
+            className={`no-print flex-1 lg:sticky lg:top-6 lg:self-start ${
+              narrow && previewTab !== "preview" ? "hidden" : ""
+            }`}
+          >
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground">Nucleus map</h2>
+              <div className="h-[320px] sm:h-[420px]">
+                <NucleusScene
+                  graph={graph}
+                  flows={live.flows}
+                  reducedMotion={reducedMotion || narrow}
+                />
+              </div>
+              <div className="rounded-xl border border-[#c4a574]/45 bg-[#e8d4bc] px-3 py-3 text-xs leading-relaxed text-[#4a3d32] shadow-sm">
+                <p className="font-medium text-[#3d3429]">
+                  The map updates as you add systems and flows.
+                </p>
+                {graph.overflowSystemCount > 0 ? (
+                  <p className="mt-2 text-[#5c4e42]">
+                    Showing {graph.nodes.length - 1} systems in the scene; +
+                    {graph.overflowSystemCount} more are named in your lists but hidden for clarity.
+                  </p>
+                ) : null}
+              </div>
+              <ImportExportBeigePanel
+                transcriptPaste={transcriptPaste}
+                onTranscriptPasteChange={(v) => {
+                  setTranscriptPaste(v);
+                  setImportError(null);
+                }}
+                importLoading={importLoading}
+                importError={importError}
+                pendingImport={pendingImport}
+                onTranscriptFileChange={onTranscriptFileChange}
+                runTranscriptImport={runTranscriptImport}
+                applyTranscriptImport={applyTranscriptImport}
+                clearPendingImport={() => setPendingImport(null)}
+                exportPdf={exportPdf}
               />
             </div>
-            <div className="rounded-xl border border-[#c4a574]/45 bg-[#e8d4bc] px-3 py-3 text-xs leading-relaxed text-[#4a3d32] shadow-sm">
-              <p className="font-medium text-[#3d3429]">
-                The map updates as you add systems and flows.
-              </p>
-              {graph.overflowSystemCount > 0 ? (
-                <p className="mt-2 text-[#5c4e42]">
-                  Showing {graph.nodes.length - 1} systems in the scene; +
-                  {graph.overflowSystemCount} more are named in your lists but hidden for clarity.
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </aside>
+          </aside>
+        </form>
       </div>
 
+    </div>
+  );
+}
+
+const inputClassBeige =
+  "w-full rounded-lg border border-[#c4a574]/55 bg-[#f8f0e6] px-3 py-2 text-sm text-[#3d3429] placeholder:text-[#6b5e52] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25";
+
+function ImportExportBeigePanel({
+  transcriptPaste,
+  onTranscriptPasteChange,
+  importLoading,
+  importError,
+  pendingImport,
+  onTranscriptFileChange,
+  runTranscriptImport,
+  applyTranscriptImport,
+  clearPendingImport,
+  exportPdf,
+}: {
+  transcriptPaste: string;
+  onTranscriptPasteChange: (value: string) => void;
+  importLoading: boolean;
+  importError: string | null;
+  pendingImport: DiscoveryPayload | null;
+  onTranscriptFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  runTranscriptImport: () => Promise<void>;
+  applyTranscriptImport: () => void;
+  clearPendingImport: () => void;
+  exportPdf: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-[#b89660]/55 bg-[#e8d4bc] p-4 text-[#3d3429] shadow-sm">
+      <details className="group rounded-lg border border-[#c4a574]/50 bg-[#f0e0cc]/90 p-3 open:bg-[#f5e8d8]">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-[#3d3429] marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-2">
+            Import from call transcript
+            <span className="text-xs font-normal text-[#5c4e42]">
+              (paste or upload .txt / .vtt)
+            </span>
+          </span>
+        </summary>
+        <p className="mt-3 text-xs leading-relaxed text-[#5c4e42]">
+          Text is sent to this app&apos;s server and then to OpenAI to map into the form. Do
+          not paste highly sensitive content unless your environment allows it.
+        </p>
+        <div className="mt-3 space-y-3">
+          <textarea
+            value={transcriptPaste}
+            onChange={(e) => {
+              onTranscriptPasteChange(e.target.value);
+            }}
+            rows={5}
+            className={inputClassBeige}
+            placeholder="Paste a Zoom transcript or meeting notes here…"
+            disabled={importLoading}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="cursor-pointer rounded-full border border-[#c4a574]/60 bg-[#f8f0e6] px-4 py-2 text-xs font-medium text-[#3d3429] hover:bg-[#fffaf5]">
+              Upload file
+              <input
+                type="file"
+                accept=".txt,.vtt,text/plain"
+                className="sr-only"
+                onChange={onTranscriptFileChange}
+                disabled={importLoading}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={importLoading}
+              onClick={() => void runTranscriptImport()}
+              className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+            >
+              {importLoading ? "Extracting…" : "Extract with AI"}
+            </button>
+          </div>
+          {importError ? (
+            <p className="text-sm text-accent">{importError}</p>
+          ) : null}
+          {pendingImport ? (
+            <div className="rounded-xl border border-accent/35 bg-accent-soft/60 p-4">
+              <p className="text-sm font-medium text-foreground">
+                Preview — check details, then apply
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-muted">
+                <li>
+                  <span className="font-medium text-foreground">Title:</span>{" "}
+                  {pendingImport.meta.title}
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Client:</span>{" "}
+                  {pendingImport.meta.clientOrg}
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Systems:</span>{" "}
+                  {pendingImport.systems.length}
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Flows:</span>{" "}
+                  {pendingImport.flows.length}
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Pattern:</span>{" "}
+                  {pendingImport.pattern.tool}
+                </li>
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={applyTranscriptImport}
+                  className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white"
+                >
+                  Apply to form
+                </button>
+                <button
+                  type="button"
+                  onClick={clearPendingImport}
+                  className="rounded-full border border-border px-4 py-2 text-xs font-medium text-foreground"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </details>
+
+      <div className="mt-4 border-t border-[#b89660]/55 pt-4">
+        <p className="text-sm font-medium text-[#3d3429]">Export</p>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={exportPdf}
+            className="rounded-full bg-[#f8f0e6] px-4 py-2 text-xs font-medium text-[#3d3429] shadow-sm ring-1 ring-[#c4a574]/60 hover:bg-[#fffaf5]"
+          >
+            Export PDF
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-[#5c4e42]">
+          Downloads a summary PDF of your discovery answers.
+        </p>
+      </div>
     </div>
   );
 }
