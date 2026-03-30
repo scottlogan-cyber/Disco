@@ -22,6 +22,7 @@ import {
 } from "@/lib/share/stateCodec";
 import { useMediaReducedMotion } from "@/lib/hooks/useMediaReducedMotion";
 import { useIsNarrowScreen } from "@/lib/hooks/useIsNarrowScreen";
+import { stripVttCues } from "@/lib/transcript/stripVtt";
 
 const inputClass =
   "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25";
@@ -39,6 +40,12 @@ export default function DiscoveryWizard() {
   const [teamBusy, setTeamBusy] = useState(false);
   const [teamMessage, setTeamMessage] = useState<string | null>(null);
   const [previewTab, setPreviewTab] = useState<"form" | "preview">("form");
+  const [transcriptPaste, setTranscriptPaste] = useState("");
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<DiscoveryPayload | null>(
+    null
+  );
 
   const reducedMotion = useMediaReducedMotion();
   const narrow = useIsNarrowScreen();
@@ -57,7 +64,7 @@ export default function DiscoveryWizard() {
     reset,
     trigger,
     getValues,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = form;
 
   const { fields: systemFields, append: appendSystem, remove: removeSystem } =
@@ -200,6 +207,67 @@ export default function DiscoveryWizard() {
 
   const showShareActions = step >= 1;
 
+  function onTranscriptFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setTranscriptPaste(stripVttCues(text));
+      setImportError(null);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  async function runTranscriptImport() {
+    const raw = transcriptPaste.trim();
+    if (!raw) {
+      setImportError("Paste a transcript or upload a .txt / .vtt file.");
+      return;
+    }
+    setImportLoading(true);
+    setImportError(null);
+    try {
+      const res = await fetch("/api/discoveries/parse-transcript", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: stripVttCues(raw) }),
+      });
+      const j = (await res.json()) as { data?: DiscoveryPayload; error?: string };
+      if (!res.ok) {
+        throw new Error(j.error ?? "Could not extract from transcript.");
+      }
+      if (!j.data) {
+        throw new Error("No data returned.");
+      }
+      setPendingImport(j.data);
+    } catch (err) {
+      setImportError((err as Error).message);
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  function applyTranscriptImport() {
+    if (!pendingImport) return;
+    if (
+      isDirty &&
+      !window.confirm(
+        "Replace your current answers with the imported discovery data?"
+      )
+    ) {
+      return;
+    }
+    reset(pendingImport);
+    setPendingImport(null);
+    setTranscriptPaste("");
+    setImportError(null);
+    setStep(0);
+    setTeamMessage("Form filled from transcript. Review and edit any page.");
+    setTimeout(() => setTeamMessage(null), 4500);
+  }
+
   if (remoteLoading) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 py-24 text-muted">
@@ -290,6 +358,103 @@ export default function DiscoveryWizard() {
             className={`space-y-6 ${narrow && previewTab !== "form" ? "hidden" : ""}`}
             onSubmit={handleSubmit(() => {})}
           >
+            <details className="group rounded-xl border border-border bg-card/60 p-4 open:bg-card">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="inline-flex items-center gap-2">
+                  Import from call transcript
+                  <span className="text-xs font-normal text-muted">
+                    (paste or upload .txt / .vtt)
+                  </span>
+                </span>
+              </summary>
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                Text is sent to this app&apos;s server and then to OpenAI to map into the
+                form. Do not paste highly sensitive content unless your environment allows
+                it.
+              </p>
+              <div className="mt-3 space-y-3">
+                <textarea
+                  value={transcriptPaste}
+                  onChange={(e) => {
+                    setTranscriptPaste(e.target.value);
+                    setImportError(null);
+                  }}
+                  rows={5}
+                  className={inputClass}
+                  placeholder="Paste a Zoom transcript or meeting notes here…"
+                  disabled={importLoading}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="cursor-pointer rounded-full border border-border bg-background px-4 py-2 text-xs font-medium text-foreground hover:bg-accent-soft/50">
+                    Upload file
+                    <input
+                      type="file"
+                      accept=".txt,.vtt,text/plain"
+                      className="sr-only"
+                      onChange={onTranscriptFileChange}
+                      disabled={importLoading}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={importLoading}
+                    onClick={() => void runTranscriptImport()}
+                    className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    {importLoading ? "Extracting…" : "Extract with AI"}
+                  </button>
+                </div>
+                {importError ? (
+                  <p className="text-sm text-accent">{importError}</p>
+                ) : null}
+                {pendingImport ? (
+                  <div className="rounded-xl border border-accent/35 bg-accent-soft/50 p-4">
+                    <p className="text-sm font-medium text-foreground">
+                      Preview — check details, then apply
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs text-muted">
+                      <li>
+                        <span className="font-medium text-foreground">Title:</span>{" "}
+                        {pendingImport.meta.title}
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground">Client:</span>{" "}
+                        {pendingImport.meta.clientOrg}
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground">Systems:</span>{" "}
+                        {pendingImport.systems.length}
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground">Flows:</span>{" "}
+                        {pendingImport.flows.length}
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground">Pattern:</span>{" "}
+                        {pendingImport.pattern.tool}
+                      </li>
+                    </ul>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={applyTranscriptImport}
+                        className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-white"
+                      >
+                        Apply to form
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingImport(null)}
+                        className="rounded-full border border-border px-4 py-2 text-xs font-medium text-foreground"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </details>
+
             {step === 0 && (
               <div className="space-y-10">
                 <section className="space-y-4">
